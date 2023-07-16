@@ -1,0 +1,85 @@
+
+```{r}
+setwd("C:/Users/w44680co/Documents/SVM")
+###Support Vector Machine model creation
+install.packages("recipes", dependencies = TRUE)
+install.packages("caret", dependencies=TRUE)
+library(recipes)
+library(caret)
+#install.packages("DMwR")
+install.packages("smotefamily")
+library(smotefamily)
+
+#Splitting dataset into training(before SMOTE) and test
+install.packages("caTools")
+library(caTools)
+set.seed(12345)
+```
+
+```{r}
+main.df <- read.csv("Dataset140523.csv", header = TRUE)
+main.scaled <- scale(main.df[c(-1,-2, -17,-40)], center = TRUE, scale = TRUE)
+main.matrix <- as.matrix(main.scaled)
+scaled.df <- cbind(main.df[c(1, 2)], main.matrix)
+
+#Splitting into both groups
+split.df <- split (scaled.df, scaled.df$Cyclical)
+limonene.df <- split.df$`Limo`
+linalool.df <- split.df$`Lina` 
+
+#Ensuring 2 of each group in testing set
+split.limonene <- sample.split(limonene.df$Cyclical,SplitRatio = 7/18)
+split.linalool <- sample.split(linalool.df$Cyclical,SplitRatio = 7/29)
+
+#Subsetting into training data (to have SMOTE carried out)
+train.limonene.df <- subset(limonene.df[c(-1)],split.limonene==FALSE)
+train.linalool.df <- subset(linalool.df[c(-1)],split.linalool==FALSE)
+train.df <- na.omit(rbind(train.limonene.df,train.linalool.df))
+
+#Subsetting into testing data
+test.limonene.df <- subset(limonene.df[c(-1)],split.limonene==TRUE)
+test.linalool.df <- subset(linalool.df[c(-1)],split.linalool==TRUE)
+test.df <- na.omit(rbind(test.limonene.df, test.linalool.df))
+
+
+set.seed(12345)
+#Defining training control
+SVMControl <- trainControl(
+    method = 'cv',                   
+    number = 5, #cross validating 10-fold
+    savePredictions = 'final',       
+    classProbs = T,                  
+    summaryFunction=twoClassSummary  
+)
+
+#Training the SVM model
+SVM_model = train(Cyclical ~ ., data=train.df, method='svmRadial', tuneLength=19, metric='ROC', trControl = SVMControl)
+
+
+#Predicting the test data and computing a confusion matrix
+SVM_predicted <- predict(SVM_model, test.df)
+test.final <- as.factor(test.df$Cyclical)
+confusionMatrix(reference = test.final, data = SVM_predicted, mode='everything', positive= 'Limo')
+```
+
+
+```{r}
+#Repeating with more observations
+set.seed(12345)
+
+#Adding synthetic data
+smoted.df <- SMOTE(train.df[-1], train.df$Cyclical, K = 3, dup_size = 1)
+smoted.df.limoheavy <- smoted.df$data
+smoted.df.2 <- SMOTE(smoted.df.limoheavy[-48], smoted.df.limoheavy$class, K = 3, dup_size = 1)
+smoted.df.balanced <- smoted.df.2$data
+
+#Training the SVM model
+SVM_model2 = train(class ~ ., data=smoted.df.balanced, method='svmRadial', tuneLength=19, metric='ROC', trControl = SVMControl)
+
+#Predicting the test data and computing a confusion matrix
+SVM_predicted_with_SMOTE <- predict(SVM_model2, test.df)
+confusionMatrix(reference = test.final, data = SVM_predicted_with_SMOTE, mode='everything', positive='Limo')
+
+
+```
+
