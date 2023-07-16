@@ -1,0 +1,164 @@
+---
+title: "ICM"
+output: html_document
+date: '2022-07-25'
+---
+
+```{r}
+# Package Installation
+setwd("C:/Users/w44680co/Documents/SVM")
+install.packages("ggplot2")
+install.packages("ggfortify")
+install.packages("cluster")
+install.packages("factoextra")
+install.packages("corrplot")
+```
+
+```{r}
+# Loading Packages and Defining function
+library(ggplot2)
+library(ggfortify)
+library(cluster)
+library(factoextra)
+library(corrplot)
+```
+
+```{r setup, include=FALSE}
+main.df <- read.csv("Dataset140523.csv", header = TRUE)
+```
+
+```{r}
+# Plotting correlation between variables
+
+# Scaling
+rownames(main.df) <- main.df$ï..Name
+
+main.scaled <- scale(main.df[c(-1, -16)], center = TRUE, scale = TRUE)
+main.matrix <- as.matrix(main.scaled)
+
+# Retrieving correlation matrix
+main.matrix.cor <- cor(main.matrix)
+corrplot(main.matrix.cor, method = "shade", type = "full", order = "FPC", 
+         tl.col = "black", tl.srt = 90, outline = TRUE, tl.cex = 0.75)
+```
+
+
+```{r}
+main.scaled <- scale(main.df[c(-)], center = TRUE, scale = TRUE)
+main.matrix <- as.matrix(main.scaled)
+
+main.pca <- prcomp(main.matrix, center = FALSE, scale. = FALSE)
+autoplot(main.pca, loadings = TRUE, loadings.label = TRUE,
+         data = main.df, colour = 'Cyclical')
+
+autoplot(main.pca, loadings = TRUE, loadings.colour = "black", loadings.label = TRUE, loadings.label.colour="blue", loadings.label.repel=TRUE,
+         data = main.df)+
+  geom_point() + # Show dots
+  geom_label(
+    label=rownames(main.df), 
+    nudge_x = 0, nudge_y = 0, 
+    check_overlap = T
+  )
+
+fviz_eig(main.pca)
+
+fviz_pca_var(main.pca, col.var="steelblue")
+
+summary(main.pca)
+eig.val<-get_eigenvalue(main.pca)
+eig.val
+```
+
+```{r}
+# Dimension analysis for PCA1-5
+
+var<-get_pca_var(main.pca)
+a<-fviz_contrib(main.pca, "var", axes=1, xtickslab.rt=90)
+plot(a,main = "Variable contribution to PC1")
+
+b<-fviz_contrib(main.pca, "var", axes=2, xtickslab.rt=90) 
+plot(b,main = "Variable contribution to PC2")
+ 
+c<-fviz_contrib(main.pca, "var", axes=3, xtickslab.rt=90) 
+plot(c,main = "Variable contribution to PC3")
+
+d<-fviz_contrib(main.pca, "var", axes=4, xtickslab.rt=90)
+plot(d,main = "Variable contribution to PC4")
+
+e<-fviz_contrib(main.pca, "var", axes=5, xtickslab.rt=90)
+plot(e,main = "Variable contribution to PC5")
+```
+```{r}
+main.cluster.df <- data.frame(main.pca$x[,(1:5)])
+
+fviz_nbclust(main.cluster.df, hcut, method = "wss", k.max = 14) + theme_minimal() + ggtitle("Elbow Method")
+fviz_nbclust(main.cluster.df, hcut, method = "silhouette", k.max = 14) + theme_minimal() + ggtitle("Silhouette Method")
+
+main.agnes <- agnes(main.cluster.df, diss = FALSE, metric = "euclidean",
+      stand = FALSE, method = "average", par.method)
+
+
+main.df.agnes <- as.data.frame(main.cluster.df)
+
+# Cutting agnes tree into 15 groups
+ main.cluster <- cutree(main.agnes, k = 2)
+
+# Visualising the results for 15 clusters
+fviz_cluster(list(data =  main.df.agnes, cluster =  main.cluster), geom = "point", pointsize = 0.8)
+
+ main.df.agnes <- as.data.frame(main.df.agnes)
+ main.group.df <- as.data.frame(main.cluster)
+ main.cluster.df$cluster.group <-  main.group.df$main.cluster
+ main.cluster.df$cyclical <- main.df$Cyclical 
+ 
+# Plot the obtained dendrogram
+pltree(main.agnes, cex = 1, hang = -1, main = "Agnes Dendrogram", ylab="Similarity Index", xlab="Enzymes") 
+```
+```{r}
+full.cluster.df <- data.frame(main.pca$x[,(1:14)])
+full.cluster.df$cyclical <- main.df$Cyclical
+ 
+# Retrieving correlation matrix
+
+#full.matrix <- as.matrix(full.cluster.df)
+#full.matrix.cor <- cor(full.matrix)
+#corrplot(full.matrix.cor, method = "shade", type = "full", order = "original", 
+         #tl.col = "black", tl.srt = 90, outline = TRUE, tl.cex = 0.75)
+
+# Further investigation of PC1-5
+#enquiry.df <- full.cluster.df[c(1:5,15)]
+#enquiry.matrix <- as.matrix(enquiry.df)
+#enquiry.matrix.cor <- cor(enquiry.matrix)
+#corrplot(enquiry.matrix.cor, method = "shade", type = "full", order = "original", 
+         #tl.col = "black", tl.srt = 90, outline = TRUE, tl.cex = 0.75, addCoef.col = "black")
+
+#enquiry.df$cyclical <- as.character(enquiry.df$cyclical)
+#ggplot(enquiry.df, aes(x=PC2, y=PC4, shape=cyclical, color=cyclical)) +
+  #geom_point()
+```
+```{r}
+enquiry.df <- full.cluster.df[c(2,4)]
+
+fviz_nbclust(enquiry.df, hcut, method = "wss", k.max = 14) + theme_minimal() + ggtitle("Elbow Method")
+fviz_nbclust(enquiry.df, hcut, method = "silhouette", k.max = 14) + theme_minimal() + ggtitle("Silhouette Method")
+
+enquiry.agnes <- agnes(enquiry.df, diss = FALSE, metric = "euclidean",
+      stand = FALSE, method = "average", par.method)
+
+
+enquiry.df.agnes <- as.data.frame(enquiry.df)
+
+# Cutting agnes tree into 15 groups
+ enquiry.cluster <- cutree(enquiry.agnes, k = 2)
+
+# Visualising the results for 15 clusters
+fviz_cluster(list(data =  enquiry.df.agnes, cluster =  enquiry.cluster), geom = "point", pointsize = 0.8)
+
+ enquiry.df.agnes <- as.data.frame(enquiry.df.agnes)
+ enquiry.group.df <- as.data.frame(enquiry.cluster)
+ enquiry.df$cluster.group <-  enquiry.group.df$enquiry.cluster
+ enquiry.df$cyclical <- main.df$Cyclical 
+ 
+# Plot the obtained dendrogram
+pltree(enquiry.agnes, cex = 1, hang = -1, main = "Agnes Dendrogram: Further Enquiry", ylab="Similarity Index", xlab="Enzymes") 
+```
